@@ -26,24 +26,31 @@ const (
 	defaultTimeoutForGoRoutine = time.Second * 5
 )
 
-type Async struct {
-	*async
-}
-
-type async struct {
-	traceServiceName    string
-	guard               chan struct{}
+type Config struct {
 	reporter            ErrorReporter
 	maxGoRoutines       uint
 	timeoutForGuard     time.Duration
 	timeoutForGoRoutine time.Duration
 	contextInjectors    []Injector
+
+	// only for pool
+	poolSize        uint
+	numberOfWorkers int
 }
 
-type AsyncOption func(*async)
+type Async struct {
+	traceServiceName    string
+	guard               chan struct{}
+	reporter            ErrorReporter
+	timeoutForGuard     time.Duration
+	timeoutForGoRoutine time.Duration
+	contextInjectors    []Injector
+}
+
+type AsyncOption func(*Config)
 
 func New(options ...AsyncOption) *Async {
-	a := &async{
+	conf := Config{
 		reporter:            noopReporter{},
 		maxGoRoutines:       defaultMaxGoRoutines,
 		timeoutForGuard:     defaultTimeoutForGuard,
@@ -51,47 +58,61 @@ func New(options ...AsyncOption) *Async {
 	}
 
 	for _, op := range options {
-		op(a)
+		op(&conf)
 	}
 
-	a.guard = make(chan struct{}, a.maxGoRoutines)
-
 	return &Async{
-		async: a,
+		guard:               make(chan struct{}, conf.maxGoRoutines),
+		reporter:            conf.reporter,
+		timeoutForGuard:     conf.timeoutForGuard,
+		timeoutForGoRoutine: conf.timeoutForGoRoutine,
+		contextInjectors:    conf.contextInjectors,
 	}
 }
 
 func WithContextInjector(injector Injector) AsyncOption {
-	return func(a *async) {
-		a.contextInjectors = append(a.contextInjectors, injector)
+	return func(conf *Config) {
+		conf.contextInjectors = append(conf.contextInjectors, injector)
 	}
 }
 
 func WithTimeoutForGuard(t time.Duration) AsyncOption {
-	return func(a *async) {
-		a.timeoutForGuard = t
+	return func(conf *Config) {
+		conf.timeoutForGuard = t
 	}
 }
 
 func WithTimeoutForGoRoutine(t time.Duration) AsyncOption {
-	return func(a *async) {
-		a.timeoutForGoRoutine = t
+	return func(conf *Config) {
+		conf.timeoutForGoRoutine = t
 	}
 }
 
 func WithErrorReporter(reporter ErrorReporter) AsyncOption {
-	return func(a *async) {
-		a.reporter = reporter
+	return func(conf *Config) {
+		conf.reporter = reporter
 	}
 }
 
 func WithMaxGoRoutines(n uint) AsyncOption {
-	return func(a *async) {
-		a.maxGoRoutines = n
+	return func(conf *Config) {
+		conf.maxGoRoutines = n
 	}
 }
 
-func (a *async) RunAsync(ctx context.Context, fn func(ctx context.Context) error) {
+func WithNumberOfWorkers(n int) AsyncOption {
+	return func(conf *Config) {
+		conf.numberOfWorkers = n
+	}
+}
+
+func WithPoolSize(n uint) AsyncOption {
+	return func(conf *Config) {
+		conf.poolSize = n
+	}
+}
+
+func (a *Async) RunAsync(ctx context.Context, fn func(ctx context.Context) error) {
 	ctx = a.asyncContext(ctx)
 
 	select {
@@ -117,7 +138,7 @@ func (a *async) RunAsync(ctx context.Context, fn func(ctx context.Context) error
 	}
 }
 
-func (a *async) asyncContext(ctx context.Context) context.Context {
+func (a *Async) asyncContext(ctx context.Context) context.Context {
 	newCtx := context.Background()
 
 	carrier := ctxCarrier{newCtx}
@@ -128,7 +149,7 @@ func (a *async) asyncContext(ctx context.Context) context.Context {
 	return carrier.ctx
 }
 
-func (a *async) recoverPanic(ctx context.Context) {
+func (a *Async) recoverPanic(ctx context.Context) {
 	if r := recover(); r != nil {
 		err, ok := r.(error)
 		if !ok {
