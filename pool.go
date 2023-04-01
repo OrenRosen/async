@@ -34,7 +34,7 @@ type PoolHandleFunc[T any] func(ctx context.Context, data T) error
 //
 // Note - can't close the pool.
 // TODO - add Close functionality.
-func NewPool[T any](fn PoolHandleFunc[T], reporter ErrorReporter, options ...AsyncOption) *Pool[T] {
+func NewPool[T any](fn PoolHandleFunc[T], options ...AsyncOption) *Pool[T] {
 	conf := Config{
 		reporter:            noopReporter{},
 		maxGoRoutines:       defaultMaxGoRoutines,
@@ -60,7 +60,7 @@ func NewPool[T any](fn PoolHandleFunc[T], reporter ErrorReporter, options ...Asy
 			id:          i,
 			dataChannel: p.dataChannel,
 			fn:          fn,
-			reporter:    reporter,
+			reporter:    conf.reporter,
 			timeout:     p.timeout,
 		}
 		w.startReceivingData()
