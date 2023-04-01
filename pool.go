@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	defaultTimeoutWaitingForChannel = time.Second * 3
-	defaultNumWorkers               = 10
-	defaultPoolSize                 = 100
+	defaultNumWorkers = 10
+	defaultPoolSize   = 100
 )
 
 type dataCtx[T any] struct {
@@ -17,33 +16,12 @@ type dataCtx[T any] struct {
 	data T
 }
 
-//type poolConfig struct {
-//	numOfWorkers     int
-//	channelLength    int
-//	timeout          time.Duration
-//	contextInjectors []Injector
-//}
-
 type Pool[T any] struct {
 	dataChannel      chan dataCtx[T]
 	reporter         ErrorReporter
 	timeout          time.Duration
 	contextInjectors []Injector
 }
-
-//type PoolOptions func(conf *poolConfig)
-
-//func WithNumberOfWorkers(num int) PoolOptions {
-//	return func(conf *poolConfig) {
-//		conf.numOfWorkers = num
-//	}
-//}
-//
-//func WithPoolSize(size int) PoolOptions {
-//	return func(conf *poolConfig) {
-//		conf.channelLength = size
-//	}
-//}
 
 type PoolHandleFunc[T any] func(ctx context.Context, data T) error
 
