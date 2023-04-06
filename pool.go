@@ -7,6 +7,9 @@ import (
 )
 
 const (
+	defaulttimeoutForGoroutine = time.Second * 5
+	defaulttimeoutInsertToPool = time.Second * 5
+
 	defaultNumWorkers = 10
 	defaultPoolSize   = 100
 )
@@ -16,32 +19,40 @@ type dataCtx[T any] struct {
 	data T
 }
 
+// Pool is a generic type for handling asynchronous calls.
+//
+// It opens n workers that listen
 type Pool[T any] struct {
-	dataChannel      chan dataCtx[T]
-	reporter         ErrorReporter
-	timeout          time.Duration
-	contextInjectors []Injector
+	dataChannel         chan dataCtx[T]
+	reporter            ErrorReporter
+	timeoutInsertToPool time.Duration
+	contextInjectors    []Injector
 }
 
 type PoolHandleFunc[T any] func(ctx context.Context, data T) error
 
-// NewPool creates a new pool instance with N number of workers
-// the workers are listening on channel for handling the receiving data
-// by triggering the received function (fn PoolHandleFunc[T]).
+// NewPool creates a new Pool instance. The method initializes n number of workers (10 is the default) that listen for a received data.
 //
-// the Pool instance that returned implements Dispatch for adding a data to the channel
-// 			func Dispatch(ctx context.Context, data T)
+// When calling Pool.Dispatch with data of type T, it adds the data to a channel which consumed by the workers.
 //
+// Args:
+//	- fn: function to be called when the data T is consumed by a worker.
+//	- options: configurable options for the pool
+//		- WithTimeoutForGoRoutine: the max time to wait for fn to be finished.
+//		- WithErrorReporter: add a custom reporter that will be triggered in case of an error.
+//		- WithContextInjector
+//		- WithNumberOfWorkers: The amount of workers.
+//		- WithPoolSize: The size of the pool. When calling Pool.Dispatch when the pool is fool, it will wait until the timeout had reached.
 // Note - can't close the pool.
+//
 // TODO - add Close functionality.
-func NewPool[T any](fn PoolHandleFunc[T], options ...AsyncOption) *Pool[T] {
-	conf := Config{
-		reporter:            noopReporter{},
-		maxGoRoutines:       defaultMaxGoRoutines,
-		timeoutForGuard:     defaultTimeoutForGuard,
-		timeoutForGoRoutine: defaultTimeoutForGoRoutine,
-		numberOfWorkers:     defaultNumWorkers,
-		poolSize:            defaultPoolSize,
+func NewPool[T any](fn PoolHandleFunc[T], options ...PoolOption) *Pool[T] {
+	conf := PoolConfig{
+		reporter:               noopReporter{},
+		timeoutForInsertToPool: defaulttimeoutInsertToPool,
+		timeoutForGoroutine:    defaultTimeoutForGoRoutine,
+		numberOfWorkers:        defaultNumWorkers,
+		poolSize:               defaultPoolSize,
 	}
 
 	for _, op := range options {
@@ -49,10 +60,10 @@ func NewPool[T any](fn PoolHandleFunc[T], options ...AsyncOption) *Pool[T] {
 	}
 
 	p := &Pool[T]{
-		dataChannel:      make(chan dataCtx[T], conf.poolSize),
-		reporter:         conf.reporter,
-		timeout:          conf.timeoutForGuard,
-		contextInjectors: conf.contextInjectors,
+		dataChannel:         make(chan dataCtx[T], conf.poolSize),
+		reporter:            conf.reporter,
+		timeoutInsertToPool: conf.timeoutForInsertToPool,
+		contextInjectors:    conf.contextInjectors,
 	}
 
 	for i := 0; i < conf.numberOfWorkers; i++ {
@@ -61,7 +72,7 @@ func NewPool[T any](fn PoolHandleFunc[T], options ...AsyncOption) *Pool[T] {
 			dataChannel: p.dataChannel,
 			fn:          fn,
 			reporter:    conf.reporter,
-			timeout:     p.timeout,
+			timeout:     conf.timeoutForGoroutine,
 		}
 		w.startReceivingData()
 	}
@@ -69,7 +80,7 @@ func NewPool[T any](fn PoolHandleFunc[T], options ...AsyncOption) *Pool[T] {
 	return p
 }
 
-// Dispatch adds a data to the channel which will be received by a worker.
+// Dispatch adds the data into the channel which will be received by a worker.
 func (p *Pool[T]) Dispatch(ctx context.Context, data T) {
 	ctx = p.asyncContext(ctx)
 
@@ -79,7 +90,7 @@ func (p *Pool[T]) Dispatch(ctx context.Context, data T) {
 			ctx:  ctx,
 			data: data,
 		}:
-		case <-time.After(p.timeout):
+		case <-time.After(p.timeoutInsertToPool):
 			err := fmt.Errorf("pool.Dispatch channel is full, timeout waiting for dispatch")
 			p.reporter.Error(ctx, err)
 		}
@@ -105,6 +116,8 @@ func (w *worker[T]) startReceivingData() {
 func (w *worker[T]) handleData(ctx context.Context, data T) {
 	ctx, cacnelFunc := context.WithTimeout(ctx, w.timeout)
 	defer cacnelFunc()
+
+	defer recoverPanic(ctx, w.reporter)
 
 	if err := w.fn(ctx, data); err != nil {
 		err = fmt.Errorf("async handleData: %w", err)

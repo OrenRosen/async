@@ -18,7 +18,7 @@ func TestStartPool(t *testing.T) {
 		gotChannel: gotChannel,
 	}
 
-	pool := async.NewPool(s.Do, &reporter{})
+	pool := async.NewPool(s.Do)
 
 	user := User{
 		Name: "Some User",
@@ -38,7 +38,9 @@ func TestStartPool_SendMany(t *testing.T) {
 		gotChannel: gotChannel,
 	}
 
-	pool := async.NewPool(s.Do, &reporter{})
+	pool := async.NewPool(s.Do,
+		async.WithPoolErrorReporter(&reporter{}),
+	)
 
 	users := createRandomUsers(10000)
 	for _, user := range users {

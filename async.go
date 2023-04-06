@@ -16,6 +16,9 @@ type Carrier interface {
 	Set(key, value string)
 }
 
+// Injector is used for injecting values from the ctx into the carrier.
+//
+// This is in order to preserve needed values between the context when initializing a new go routine.
 type Injector interface {
 	Inject(ctx context.Context, carrier interface{ Carrier })
 }
@@ -26,18 +29,6 @@ const (
 	defaultTimeoutForGoRoutine = time.Second * 5
 )
 
-type Config struct {
-	reporter            ErrorReporter
-	maxGoRoutines       uint
-	timeoutForGuard     time.Duration
-	timeoutForGoRoutine time.Duration
-	contextInjectors    []Injector
-
-	// only for pool
-	poolSize        uint
-	numberOfWorkers int
-}
-
 type Async struct {
 	traceServiceName    string
 	guard               chan struct{}
@@ -46,8 +37,6 @@ type Async struct {
 	timeoutForGoRoutine time.Duration
 	contextInjectors    []Injector
 }
-
-type AsyncOption func(*Config)
 
 func New(options ...AsyncOption) *Async {
 	conf := Config{
@@ -70,48 +59,6 @@ func New(options ...AsyncOption) *Async {
 	}
 }
 
-func WithContextInjector(injector Injector) AsyncOption {
-	return func(conf *Config) {
-		conf.contextInjectors = append(conf.contextInjectors, injector)
-	}
-}
-
-func WithTimeoutForGuard(t time.Duration) AsyncOption {
-	return func(conf *Config) {
-		conf.timeoutForGuard = t
-	}
-}
-
-func WithTimeoutForGoRoutine(t time.Duration) AsyncOption {
-	return func(conf *Config) {
-		conf.timeoutForGoRoutine = t
-	}
-}
-
-func WithErrorReporter(reporter ErrorReporter) AsyncOption {
-	return func(conf *Config) {
-		conf.reporter = reporter
-	}
-}
-
-func WithMaxGoRoutines(n uint) AsyncOption {
-	return func(conf *Config) {
-		conf.maxGoRoutines = n
-	}
-}
-
-func WithNumberOfWorkers(n int) AsyncOption {
-	return func(conf *Config) {
-		conf.numberOfWorkers = n
-	}
-}
-
-func WithPoolSize(n uint) AsyncOption {
-	return func(conf *Config) {
-		conf.poolSize = n
-	}
-}
-
 func (a *Async) RunAsync(ctx context.Context, fn func(ctx context.Context) error) {
 	ctx = a.asyncContext(ctx)
 
@@ -126,7 +73,7 @@ func (a *Async) RunAsync(ctx context.Context, fn func(ctx context.Context) error
 				<-a.guard
 			}()
 
-			defer a.recoverPanic(ctx)
+			defer recoverPanic(ctx, a.reporter)
 
 			if err = fn(ctx); err != nil {
 				a.reporter.Error(ctx, fmt.Errorf("async func failed: %w", err))
@@ -149,14 +96,14 @@ func (a *Async) asyncContext(ctx context.Context) context.Context {
 	return carrier.ctx
 }
 
-func (a *Async) recoverPanic(ctx context.Context) {
+func recoverPanic(ctx context.Context, reporter ErrorReporter) {
 	if r := recover(); r != nil {
 		err, ok := r.(error)
 		if !ok {
 			err = fmt.Errorf("%v", r)
 		}
 
-		a.reporter.Error(ctx, fmt.Errorf("mmasyc recoverPanic: %w", err))
+		reporter.Error(ctx, fmt.Errorf("mmasyc recoverPanic: %w", err))
 	}
 }
 
