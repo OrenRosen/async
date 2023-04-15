@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
+	
 	"github.com/stretchr/testify/require"
-
+	
 	"github.com/OrenRosen/async"
 )
 
@@ -17,19 +17,34 @@ func TestStartPool(t *testing.T) {
 	s := &service{
 		gotChannel: gotChannel,
 	}
-
-	pool := async.NewPool(s.Do)
-
+	
+	pool := async.NewPool(
+		async.WithPoolContextInjector(injector{}))
+	
 	user := User{
 		Name: "Some User",
 	}
-	pool.Dispatch(context.Background(), user)
-
+	
+	ctx := context.WithValue(context.Background(), "someKey", "someValue")
+	ctx = context.WithValue(ctx, "otherKey", "otherValue")
+	
+	pool.RunAsync(ctx, func(ctx context.Context) error {
+		val, ok := ctx.Value("someKey").(string)
+		require.True(t, ok, "didn't find someKey. Expected to be injected")
+		require.Equal(t, "someValue", val)
+		
+		otherVal := ctx.Value("otherKey")
+		require.Nil(t, otherVal, "expected otherKey not to be injected")
+		
+		return s.Do(ctx, user)
+	})
+	
 	select {
 	case <-gotChannel:
 	case <-time.After(time.Millisecond * 10):
 		t.Fatal("the service wasn't called, timeout")
 	}
+	
 }
 
 func TestStartPool_SendMany(t *testing.T) {
@@ -37,16 +52,19 @@ func TestStartPool_SendMany(t *testing.T) {
 	s := &service{
 		gotChannel: gotChannel,
 	}
-
-	pool := async.NewPool(s.Do,
+	
+	pool := async.NewPool(
 		async.WithPoolErrorReporter(&reporter{}),
 	)
-
+	
 	users := createRandomUsers(10000)
 	for _, user := range users {
-		pool.Dispatch(context.Background(), user)
+		u := user
+		pool.RunAsync(context.Background(), func(ctx context.Context) error {
+			return s.Do(ctx, u)
+		})
 	}
-
+	
 	receivedUsers := make([]User, len(users))
 	for i := range users {
 		select {
@@ -56,7 +74,7 @@ func TestStartPool_SendMany(t *testing.T) {
 			t.Fatal("the service wasn't called, timeout")
 		}
 	}
-
+	
 	expectUsers(t, users, receivedUsers)
 }
 
@@ -82,7 +100,7 @@ func createRandomUsers(num int) []User {
 			Name: "Some User " + strconv.Itoa(rand.Int()),
 		}
 	}
-
+	
 	return users
 }
 
@@ -96,7 +114,7 @@ func expectUsers(t *testing.T, expected, actual []User) {
 				break
 			}
 		}
-
+		
 		require.True(t, found, "expectUsers didn't find user")
 	}
 }

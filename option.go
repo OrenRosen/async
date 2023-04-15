@@ -89,3 +89,9 @@ func WithPoolSize(n uint) PoolOption {
 		conf.poolSize = n
 	}
 }
+
+func WithPoolContextInjector(injector Injector) PoolOption {
+	return func(conf *PoolConfig) {
+		conf.contextInjectors = append(conf.contextInjectors, injector)
+	}
+}

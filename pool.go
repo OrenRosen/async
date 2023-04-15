@@ -7,46 +7,43 @@ import (
 )
 
 const (
-	defaulttimeoutForGoroutine = time.Second * 5
 	defaulttimeoutInsertToPool = time.Second * 5
-
+	
 	defaultNumWorkers = 10
 	defaultPoolSize   = 100
 )
 
-type dataCtx[T any] struct {
-	ctx  context.Context
-	data T
+type funcChannelData struct {
+	ctx context.Context
+	fn  HandleFunc
 }
 
 // Pool is a generic type for handling asynchronous calls.
 //
 // It opens n workers that listen
-type Pool[T any] struct {
-	dataChannel         chan dataCtx[T]
+type Pool struct {
+	funcChannel         chan funcChannelData
 	reporter            ErrorReporter
 	timeoutInsertToPool time.Duration
 	contextInjectors    []Injector
 }
 
-type PoolHandleFunc[T any] func(ctx context.Context, data T) error
+type HandleFunc func(ctx context.Context) error
 
-// NewPool creates a new Pool instance. The method initializes n number of workers (10 is the default) that listen for a received data.
+// NewPool creates a new Pool instance. The method initializes n number of workers (10 is the default) that listen for a received function.
 //
-// When calling Pool.Dispatch with data of type T, it adds the data to a channel which consumed by the workers.
+// When calling Pool.RunAsync with HandleFunc, it adds the function to a channel which consumed by the workers.
 //
-// Args:
-//	- fn: function to be called when the data T is consumed by a worker.
-//	- options: configurable options for the pool
-//		- WithTimeoutForGoRoutine: the max time to wait for fn to be finished.
-//		- WithErrorReporter: add a custom reporter that will be triggered in case of an error.
-//		- WithContextInjector
-//		- WithNumberOfWorkers: The amount of workers.
-//		- WithPoolSize: The size of the pool. When calling Pool.Dispatch when the pool is fool, it will wait until the timeout had reached.
+// Options:
+//	- WithTimeoutForGoRoutine: the max time to wait for fn to be finished.
+//	- WithErrorReporter: add a custom reporter that will be triggered in case of an error.
+//	- WithContextInjector
+//	- WithNumberOfWorkers: The amount of workers.
+//	- WithPoolSize: The size of the pool. When calling Pool.Dispatch when the pool is fool, it will wait until the timeout had reached.
 // Note - can't close the pool.
 //
 // TODO - add Close functionality.
-func NewPool[T any](fn PoolHandleFunc[T], options ...PoolOption) *Pool[T] {
+func NewPool(options ...PoolOption) *Pool {
 	conf := PoolConfig{
 		reporter:               noopReporter{},
 		timeoutForInsertToPool: defaulttimeoutInsertToPool,
@@ -54,42 +51,41 @@ func NewPool[T any](fn PoolHandleFunc[T], options ...PoolOption) *Pool[T] {
 		numberOfWorkers:        defaultNumWorkers,
 		poolSize:               defaultPoolSize,
 	}
-
+	
 	for _, op := range options {
 		op(&conf)
 	}
-
-	p := &Pool[T]{
-		dataChannel:         make(chan dataCtx[T], conf.poolSize),
+	
+	p := &Pool{
+		funcChannel:         make(chan funcChannelData, conf.poolSize),
 		reporter:            conf.reporter,
 		timeoutInsertToPool: conf.timeoutForInsertToPool,
 		contextInjectors:    conf.contextInjectors,
 	}
-
+	
 	for i := 0; i < conf.numberOfWorkers; i++ {
-		w := worker[T]{
+		w := worker{
 			id:          i,
-			dataChannel: p.dataChannel,
-			fn:          fn,
+			funcChannel: p.funcChannel,
 			reporter:    conf.reporter,
 			timeout:     conf.timeoutForGoroutine,
 		}
 		w.startReceivingData()
 	}
-
+	
 	return p
 }
 
-// Dispatch adds the data into the channel which will be received by a worker.
-func (p *Pool[T]) Dispatch(ctx context.Context, data T) {
-	ctx = p.asyncContext(ctx)
-
+// RunAsync adds the function into the channel which will be received by a worker.
+func (p *Pool) RunAsync(ctx context.Context, fn HandleFunc) {
+	data := funcChannelData{
+		ctx: p.asyncContext(ctx),
+		fn:  fn,
+	}
+	
 	go func() {
 		select {
-		case p.dataChannel <- dataCtx[T]{
-			ctx:  ctx,
-			data: data,
-		}:
+		case p.funcChannel <- data:
 		case <-time.After(p.timeoutInsertToPool):
 			err := fmt.Errorf("pool.Dispatch channel is full, timeout waiting for dispatch")
 			p.reporter.Error(ctx, err)
@@ -97,41 +93,40 @@ func (p *Pool[T]) Dispatch(ctx context.Context, data T) {
 	}()
 }
 
-type worker[T any] struct {
+type worker struct {
 	id          int
-	dataChannel chan dataCtx[T]
-	fn          PoolHandleFunc[T]
+	funcChannel chan funcChannelData
 	reporter    ErrorReporter
 	timeout     time.Duration
 }
 
-func (w *worker[T]) startReceivingData() {
+func (w *worker) startReceivingData() {
 	go func() {
-		for data := range w.dataChannel {
-			w.handleData(data.ctx, data.data)
+		for data := range w.funcChannel {
+			w.handleData(data.ctx, data.fn)
 		}
 	}()
 }
 
-func (w *worker[T]) handleData(ctx context.Context, data T) {
+func (w *worker) handleData(ctx context.Context, fn HandleFunc) {
 	ctx, cacnelFunc := context.WithTimeout(ctx, w.timeout)
 	defer cacnelFunc()
-
+	
 	defer recoverPanic(ctx, w.reporter)
-
-	if err := w.fn(ctx, data); err != nil {
+	
+	if err := fn(ctx); err != nil {
 		err = fmt.Errorf("async handleData: %w", err)
 		w.reporter.Error(ctx, err)
 	}
 }
 
-func (p *Pool[T]) asyncContext(ctx context.Context) context.Context {
+func (p *Pool) asyncContext(ctx context.Context) context.Context {
 	newCtx := context.Background()
-
+	
 	carrier := ctxCarrier{newCtx}
 	for _, inj := range p.contextInjectors {
 		inj.Inject(ctx, &carrier)
 	}
-
+	
 	return carrier.ctx
 }
