@@ -53,19 +53,22 @@ type PoolOption func(*PoolConfig)
 
 type PoolConfig struct {
 	reporter               ErrorReporter
-	timeoutForGoroutine    time.Duration
+	timeoutForFN           time.Duration
 	timeoutForInsertToPool time.Duration
 	contextInjectors       []Injector
 	poolSize               uint
 	numberOfWorkers        int
 }
 
-func WithPoolTimeoutForGoRoutine(t time.Duration) PoolOption {
+// WithPoolTimeoutForFN sets the timeout for running the consumer's function.
+func WithPoolTimeoutForFN(t time.Duration) PoolOption {
 	return func(conf *PoolConfig) {
-		conf.timeoutForGoroutine = t
+		conf.timeoutForFN = t
 	}
 }
 
+// WithPoolTimeoutInsertToPool sets the timeout for trying to insert the new function into the pool.
+// This can happen when the pool is already with max number of messages (pool size is full) and it takes long time for a function to return.
 func WithPoolTimeoutInsertToPool(t time.Duration) PoolOption {
 	return func(conf *PoolConfig) {
 		conf.timeoutForInsertToPool = t
@@ -78,12 +81,14 @@ func WithPoolErrorReporter(reporter ErrorReporter) PoolOption {
 	}
 }
 
+// WithPoolNumberOfWorkers limits the workers number. Each worker is listening to a received data on a different go routine.
 func WithPoolNumberOfWorkers(n int) PoolOption {
 	return func(conf *PoolConfig) {
 		conf.numberOfWorkers = n
 	}
 }
 
+// WithPoolSize limits the number of messages the channel can receive
 func WithPoolSize(n uint) PoolOption {
 	return func(conf *PoolConfig) {
 		conf.poolSize = n

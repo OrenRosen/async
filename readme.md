@@ -1,9 +1,18 @@
-# Package async
+# Package gosync
 
-Package `async` provides simple tool for asyncoronous work.
+Package `gosync` provides simple helpers for running code in a go routine.
 
-## Run function in go routine
-The most basic functionality in async is to open a new go routine when called.
+Main featured:
+- Limiting the number of opened go routines.
+- Recovering from a panic.
+- Option to passing values between contexts.
+- Configurable timeouts.
+- Handling errors from the async function
+
+# Simple usecases:
+
+### Run function in a new go routine
+The most basic functionality is to open a new go routine when everytime it is called:
 
 Example:
 
@@ -19,16 +28,61 @@ import (
 )
 
 func main() {
+	// initialize the async helper
 	a := async.New()
 	
+	// call `a.RunAsync` with a context and a closure, which will be run in a new go routine
 	a.RunAsync(context.Background(), func(ctx context.Context) error {
 		fmt.Println("Running in async")
 		return nil
 	})
 	
+	// for the example, sleeping in order to see the print from the async function
+	fmt.Println("Going to sleep...")
 	time.Sleep(time.Millisecond * 100)
 }
 ```
+
+### Run a function in a pool of go routines
+
+This use case is for cases you know you have a lot of traffic, and you would not like to open a new go routine for each call. Instead, it initializes a pool of go routines, which are ready to handle an incoming function:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/OrenRosen/async"
+)
+
+func main() {
+	// initialize the pool
+	// open 10 go routine, in each go routine a worker is listens on a channel for a received function 
+	pool := async.NewPool()
+	
+	// call `pool.RunAsync` with a context and a closure.
+	// this will add the passed function to the queue channel for be consumed by an available worker 
+	pool.RunAsync(context.Background(), func(ctx context.Context) error {
+		fmt.Println("running in async pool")
+		return nil
+	})
+	
+	// for the example, sleeping in order to see the print from the async function
+	fmt.Println("going to sleep...")
+	time.Sleep(time.Second)
+}
+```
+
+
+
+
+
+
+
+
 ## Initializing
 ```go
 func New(options ...AsyncOption) *Async

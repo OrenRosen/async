@@ -45,11 +45,11 @@ func New(options ...AsyncOption) *Async {
 		timeoutForGuard:     defaultTimeoutForGuard,
 		timeoutForGoRoutine: defaultTimeoutForGoRoutine,
 	}
-	
+
 	for _, op := range options {
 		op(&conf)
 	}
-	
+
 	return &Async{
 		guard:               make(chan struct{}, conf.maxGoRoutines),
 		reporter:            conf.reporter,
@@ -60,39 +60,39 @@ func New(options ...AsyncOption) *Async {
 }
 
 func (a *Async) RunAsync(ctx context.Context, fn HandleFunc) {
-	ctx = a.asyncContext(ctx)
-	
+	ctx = asyncContext(ctx, a.contextInjectors)
+
 	select {
 	case a.guard <- struct{}{}:
 		go func() {
 			ctx, cacnelFunc := context.WithTimeout(ctx, a.timeoutForGoRoutine)
-			
+
 			var err error
 			defer func() {
 				cacnelFunc()
 				<-a.guard
 			}()
-			
+
 			defer recoverPanic(ctx, a.reporter)
-			
+
 			if err = fn(ctx); err != nil {
 				a.reporter.Error(ctx, fmt.Errorf("async func failed: %w", err))
 			}
 		}()
-	
+
 	case <-time.After(a.timeoutForGuard):
 		a.reporter.Error(ctx, errorTimeout(fmt.Errorf("async timeout while waiting to guard")))
 	}
 }
 
-func (a *Async) asyncContext(ctx context.Context) context.Context {
+func asyncContext(ctx context.Context, injectors []Injector) context.Context {
 	newCtx := context.Background()
-	
+
 	carrier := ctxCarrier{newCtx}
-	for _, inj := range a.contextInjectors {
+	for _, inj := range injectors {
 		inj.Inject(ctx, &carrier)
 	}
-	
+
 	return carrier.ctx
 }
 
@@ -102,7 +102,7 @@ func recoverPanic(ctx context.Context, reporter ErrorReporter) {
 		if !ok {
 			err = fmt.Errorf("%v", r)
 		}
-		
+
 		reporter.Error(ctx, fmt.Errorf("mmasyc recoverPanic: %w", err))
 	}
 }

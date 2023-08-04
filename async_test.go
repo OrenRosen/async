@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 	"time"
-	
+
 	"github.com/stretchr/testify/require"
-	
+
 	"github.com/OrenRosen/async"
 )
 
@@ -16,7 +16,7 @@ func Test_async_RunAsync(t *testing.T) {
 		async.WithErrorReporter(rep),
 		async.WithContextInjector(injector{}),
 	)
-	
+
 	ctx := context.WithValue(context.Background(), "someKey", "someValue")
 	ctx = context.WithValue(ctx, "someOtherKey", "someOtherValue")
 	ch := make(chan struct{})
@@ -24,23 +24,23 @@ func Test_async_RunAsync(t *testing.T) {
 		defer func() {
 			ch <- struct{}{}
 		}()
-		
+
 		val, ok := ctx.Value("someKey").(string)
 		require.True(t, ok, "didn't find someKey")
 		require.Equal(t, "someValue", val)
-		
+
 		_, ok = ctx.Value("someOtherKey").(string)
 		require.False(t, ok, "someOtherKey shouldn't persist between contexts")
-		
+
 		return nil
 	})
-	
+
 	select {
 	case <-ch:
 	case <-time.After(time.Millisecond * 100):
 		t.Fatal("timeout waiting for channel")
 	}
-	
+
 	require.False(t, rep.called)
 }
 
@@ -51,19 +51,19 @@ func Test_async_RunAsync_Panic(t *testing.T) {
 	asyncer := async.New(
 		async.WithErrorReporter(rep),
 	)
-	
+
 	ctx := context.WithValue(context.Background(), "someKey", "someValue")
 	ctx = context.WithValue(ctx, "someOtherKey", "someOtherValue")
 	asyncer.RunAsync(ctx, func(ctx context.Context) error {
 		panic("aaaa")
 	})
-	
+
 	select {
 	case <-rep.errorCh:
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for reporter to be called")
 	}
-	
+
 	require.True(t, rep.called, "error reporter expected to be called")
 }
 
@@ -71,7 +71,7 @@ func Test_async_options(t *testing.T) {
 	rep := &reporter{
 		errorCh: make(chan struct{}),
 	}
-	
+
 	// start asyncer with limit 1 in guard
 	// short timeout for waiting to guard
 	// do twice RunAsync that takes a long time
@@ -82,12 +82,12 @@ func Test_async_options(t *testing.T) {
 		async.WithTimeoutForGuard(time.Millisecond*10),
 		async.WithTimeoutForGoRoutine(time.Second*4),
 	)
-	
+
 	asyncer.RunAsync(context.Background(), func(ctx context.Context) error {
 		time.Sleep(time.Second * 5)
 		return nil
 	})
-	
+
 	go func() {
 		select {
 		case <-rep.errorCh:
@@ -96,7 +96,7 @@ func Test_async_options(t *testing.T) {
 			return
 		}
 	}()
-	
+
 	asyncer.RunAsync(context.Background(), func(ctx context.Context) error {
 		time.Sleep(time.Second * 5)
 		return nil
@@ -123,7 +123,7 @@ func (i injector) Inject(ctx context.Context, carrier interface{ async.Carrier }
 	if !ok {
 		return
 	}
-	
+
 	if val != "" {
 		carrier.Set("someKey", val)
 	}
