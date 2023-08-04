@@ -14,7 +14,7 @@ func Test_async_RunAsync(t *testing.T) {
 	rep := &reporter{}
 	asyncer := async.New(
 		async.WithErrorReporter(rep),
-		async.WithContextInjector(injector{}),
+		async.WithContextPropagation(propagator{}),
 	)
 
 	ctx := context.WithValue(context.Background(), "someKey", "someValue")
@@ -45,28 +45,26 @@ func Test_async_RunAsync(t *testing.T) {
 }
 
 func Test_async_RunAsync_Panic(t *testing.T) {
-	rep := &reporter{}
+	rep := &reporter{
+		errorCh: make(chan struct{}, 1),
+	}
 	asyncer := async.New(
 		async.WithErrorReporter(rep),
 	)
 
 	ctx := context.WithValue(context.Background(), "someKey", "someValue")
 	ctx = context.WithValue(ctx, "someOtherKey", "someOtherValue")
-	ch := make(chan struct{})
 	asyncer.RunAsync(ctx, func(ctx context.Context) error {
-		defer func() {
-			ch <- struct{}{}
-		}()
 		panic("aaaa")
 	})
 
 	select {
-	case <-ch:
-	case <-time.After(time.Millisecond * 100):
-		t.Fatal("timeout waiting for channel")
+	case <-rep.errorCh:
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for reporter to be called")
 	}
 
-	require.True(t, rep.called)
+	require.True(t, rep.called, "error reporter expected to be called")
 }
 
 func Test_async_options(t *testing.T) {
@@ -115,6 +113,14 @@ func (r *reporter) Error(ctx context.Context, err error) {
 	if r.errorCh != nil {
 		r.errorCh <- struct{}{}
 	}
+}
+
+type propagator struct {
+}
+
+func (i propagator) MoveToContext(from, to context.Context) context.Context {
+	val := from.Value("someKey")
+	return context.WithValue(to, "someKey", val)
 }
 
 type injector struct {
