@@ -1,6 +1,6 @@
 # Package gosync
 
-[![Build Status](https://github.com/OrenRosen/async/actions/workflows/gotest.yaml/badge.svg)](https://github.com/OrenRosen/async/blob/main/.github/workflows/gotest.yaml)
+[![Build Status](https://github.com/OrenRosen/async/actions/workflows/merge.yaml/badge.svg?branch=main)](https://github.com/OrenRosen/async/blob/main/.github/workflows/merge.yaml)
 
 Package `gosync` provides simple helpers for running code in a go routine.
 
