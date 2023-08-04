@@ -1,5 +1,7 @@
 # Package gosync
 
+[![Build Status](https://github.com/OrenRosen/async/actions/workflows/gotest.yaml/badge.svg)](https://github.com/OrenRosen/async/blob/main/.github/workflows/gotest.yaml)
+
 Package `gosync` provides simple helpers for running code in a go routine.
 
 ### Main features (or why to use this package instead of just `go func`):
@@ -147,6 +149,7 @@ A context propagator is used to propagate values between contexts. Since the pas
 There are cases though, you want to propagate a value, to be used in the passed function. For example traceID, user details, log id etc...
 
 For more info, you look at the examples and tests. 
+
 
 
 
