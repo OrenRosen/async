@@ -33,7 +33,7 @@ type HandleFunc func(ctx context.Context) error
 //
 // Options:
 //   - WithTimeoutForGoRoutine: the max time to wait for fn to be finished.
-//   - WithErrorReporter: add a custom errorHandler that will be triggered in case of an error.
+//   - WithErrorHandler: add a custom errorHandler that will be triggered in case of an error.
 //   - WithContextInjector
 //   - WithNumberOfWorkers: The amount of workers.
 //   - WithPoolSize: The size of the pool. When calling Pool.Dispatch when the pool is fool, it will wait until the timeout had reached.

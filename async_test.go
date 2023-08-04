@@ -13,7 +13,7 @@ import (
 func Test_async_RunAsync(t *testing.T) {
 	rep := &errorHandler{}
 	asyncer := async.New(
-		async.WithErrorReporter(rep),
+		async.WithErrorHandler(rep),
 		async.WithContextPropagation(propagator{}),
 	)
 
@@ -49,7 +49,7 @@ func Test_async_RunAsync_Panic(t *testing.T) {
 		errorCh: make(chan struct{}, 1),
 	}
 	asyncer := async.New(
-		async.WithErrorReporter(rep),
+		async.WithErrorHandler(rep),
 	)
 
 	ctx := context.WithValue(context.Background(), "someKey", "someValue")
@@ -77,7 +77,7 @@ func Test_async_options(t *testing.T) {
 	// do twice RunAsync that takes a long time
 	// expect that errorHandler will be called
 	asyncer := async.New(
-		async.WithErrorReporter(rep),
+		async.WithErrorHandler(rep),
 		async.WithMaxGoRoutines(1),
 		async.WithTimeoutForGuard(time.Millisecond*10),
 		async.WithTimeoutForGoRoutine(time.Second*4),

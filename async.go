@@ -104,14 +104,14 @@ func asyncContext(ctx context.Context, contextPropagators []ContextPropagator) c
 	return newCtx
 }
 
-func recoverPanic(ctx context.Context, reporter ErrorHandler) {
+func recoverPanic(ctx context.Context, errorHandler ErrorHandler) {
 	if r := recover(); r != nil {
 		err, ok := r.(error)
 		if !ok {
 			err = fmt.Errorf("%v", r)
 		}
 
-		reporter.HandleError(ctx, fmt.Errorf("async recoverPanic: %w", err))
+		errorHandler.HandleError(ctx, fmt.Errorf("async recoverPanic: %w", err))
 	}
 }
 

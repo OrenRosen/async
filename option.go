@@ -28,7 +28,7 @@ func WithTimeoutForGoRoutine(t time.Duration) AsyncOption {
 	}
 }
 
-func WithErrorReporter(errorHandler ErrorHandler) AsyncOption {
+func WithErrorHandler(errorHandler ErrorHandler) AsyncOption {
 	return func(conf *Config) {
 		conf.errorHandler = errorHandler
 	}
@@ -76,7 +76,7 @@ func WithPoolTimeoutInsertToPool(t time.Duration) PoolOption {
 	}
 }
 
-func WithPoolErrorReporter(errorHandler ErrorHandler) PoolOption {
+func WithPoolErrorHandler(errorHandler ErrorHandler) PoolOption {
 	return func(conf *PoolConfig) {
 		conf.errorHandler = errorHandler
 	}
