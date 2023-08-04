@@ -128,14 +128,14 @@ Use this option to set the max time that a go routine is running. This is basica
 - The default for this option is 5 seconds.
 
 
-#### Error reporter
+#### Error Handler
 ```go
-func WithErrorReporter(reporter ErrorReporter) AsyncOption
+func WithErrorHandler(errorHandler ErrorHandler) AsyncOption
 ```
-Use this option to set the reporter. The reporter implements `ErrorReporter`:
+Use this option to set the error handler. The reporter implements `ErrorHandler`:
 ```go
 type ErrorReporter interface {
-	Error(ctx context.Context, err error)
+	HandleError(ctx context.Context, err error)
 }
 ```
 It will be called in case of an error. You can use this option for logging/monitoring.

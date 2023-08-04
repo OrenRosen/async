@@ -54,7 +54,7 @@ func TestStartPool_SendMany(t *testing.T) {
 	}
 
 	pool := async.NewPool(
-		async.WithPoolErrorReporter(&reporter{}),
+		async.WithPoolErrorHandler(&errorHandler{}),
 	)
 
 	users := createRandomUsers(10000)
