@@ -8,8 +8,14 @@ import (
 
 type errorTimeout error
 
-type ErrorReporter interface {
-	Error(ctx context.Context, err error)
+type ErrorHandler interface {
+	HandleError(ctx context.Context, err error)
+}
+
+type ErrorFunc func(ctx context.Context, err error)
+
+func (f ErrorFunc) HandleError(ctx context.Context, err error) {
+	f(ctx, err)
 }
 
 // ContextPropagator is used for moving values from the ctx into the new context.
@@ -35,7 +41,7 @@ const (
 type Async struct {
 	traceServiceName    string
 	guard               chan struct{}
-	reporter            ErrorReporter
+	errorHandler        ErrorHandler
 	timeoutForGuard     time.Duration
 	timeoutForGoRoutine time.Duration
 	contextPropagators  []ContextPropagator
@@ -43,7 +49,7 @@ type Async struct {
 
 func New(options ...AsyncOption) *Async {
 	conf := Config{
-		reporter:            noopReporter{},
+		errorHandler:        noopErrorHandler{},
 		maxGoRoutines:       defaultMaxGoRoutines,
 		timeoutForGuard:     defaultTimeoutForGuard,
 		timeoutForGoRoutine: defaultTimeoutForGoRoutine,
@@ -55,7 +61,7 @@ func New(options ...AsyncOption) *Async {
 
 	return &Async{
 		guard:               make(chan struct{}, conf.maxGoRoutines),
-		reporter:            conf.reporter,
+		errorHandler:        conf.errorHandler,
 		timeoutForGuard:     conf.timeoutForGuard,
 		timeoutForGoRoutine: conf.timeoutForGoRoutine,
 		contextPropagators:  conf.contextPropagators,
@@ -76,15 +82,15 @@ func (a *Async) RunAsync(ctx context.Context, fn HandleFunc) {
 				<-a.guard
 			}()
 
-			defer recoverPanic(ctx, a.reporter)
+			defer recoverPanic(ctx, a.errorHandler)
 
 			if err = fn(ctx); err != nil {
-				a.reporter.Error(ctx, fmt.Errorf("async func failed: %w", err))
+				a.errorHandler.HandleError(ctx, fmt.Errorf("async func failed: %w", err))
 			}
 		}()
 
 	case <-time.After(a.timeoutForGuard):
-		a.reporter.Error(ctx, errorTimeout(fmt.Errorf("async timeout while waiting to guard")))
+		a.errorHandler.HandleError(ctx, errorTimeout(fmt.Errorf("async timeout while waiting to guard")))
 	}
 }
 
@@ -98,20 +104,20 @@ func asyncContext(ctx context.Context, contextPropagators []ContextPropagator) c
 	return newCtx
 }
 
-func recoverPanic(ctx context.Context, reporter ErrorReporter) {
+func recoverPanic(ctx context.Context, reporter ErrorHandler) {
 	if r := recover(); r != nil {
 		err, ok := r.(error)
 		if !ok {
 			err = fmt.Errorf("%v", r)
 		}
 
-		reporter.Error(ctx, fmt.Errorf("mmasyc recoverPanic: %w", err))
+		reporter.HandleError(ctx, fmt.Errorf("async recoverPanic: %w", err))
 	}
 }
 
-type noopReporter struct {
+type noopErrorHandler struct {
 }
 
-func (_ noopReporter) Error(ctx context.Context, err error) {
+func (_ noopErrorHandler) HandleError(ctx context.Context, err error) {
 
 }

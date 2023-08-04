@@ -9,7 +9,7 @@ import (
 type AsyncOption func(*Config)
 
 type Config struct {
-	reporter            ErrorReporter
+	errorHandler        ErrorHandler
 	timeoutForGoRoutine time.Duration
 	contextPropagators  []ContextPropagator
 	maxGoRoutines       uint
@@ -28,9 +28,9 @@ func WithTimeoutForGoRoutine(t time.Duration) AsyncOption {
 	}
 }
 
-func WithErrorReporter(reporter ErrorReporter) AsyncOption {
+func WithErrorReporter(errorHandler ErrorHandler) AsyncOption {
 	return func(conf *Config) {
-		conf.reporter = reporter
+		conf.errorHandler = errorHandler
 	}
 }
 
@@ -53,7 +53,7 @@ func WithContextPropagation(contextPropagator ContextPropagator) AsyncOption {
 type PoolOption func(*PoolConfig)
 
 type PoolConfig struct {
-	reporter               ErrorReporter
+	errorHandler           ErrorHandler
 	timeoutForFN           time.Duration
 	timeoutForInsertToPool time.Duration
 	contextPropagators     []ContextPropagator
@@ -76,9 +76,9 @@ func WithPoolTimeoutInsertToPool(t time.Duration) PoolOption {
 	}
 }
 
-func WithPoolErrorReporter(reporter ErrorReporter) PoolOption {
+func WithPoolErrorReporter(errorHandler ErrorHandler) PoolOption {
 	return func(conf *PoolConfig) {
-		conf.reporter = reporter
+		conf.errorHandler = errorHandler
 	}
 }
 

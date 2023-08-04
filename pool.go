@@ -20,7 +20,7 @@ type funcChannelData struct {
 
 type Pool struct {
 	funcChannel         chan funcChannelData
-	reporter            ErrorReporter
+	errorHandler        ErrorHandler
 	timeoutInsertToPool time.Duration
 	contextPropagators  []ContextPropagator
 }
@@ -33,7 +33,7 @@ type HandleFunc func(ctx context.Context) error
 //
 // Options:
 //   - WithTimeoutForGoRoutine: the max time to wait for fn to be finished.
-//   - WithErrorReporter: add a custom reporter that will be triggered in case of an error.
+//   - WithErrorReporter: add a custom errorHandler that will be triggered in case of an error.
 //   - WithContextInjector
 //   - WithNumberOfWorkers: The amount of workers.
 //   - WithPoolSize: The size of the pool. When calling Pool.Dispatch when the pool is fool, it will wait until the timeout had reached.
@@ -43,7 +43,7 @@ type HandleFunc func(ctx context.Context) error
 // TODO - add Close functionality.
 func NewPool(options ...PoolOption) *Pool {
 	conf := PoolConfig{
-		reporter:               noopReporter{},
+		errorHandler:           noopErrorHandler{},
 		timeoutForInsertToPool: defaultTimeout,
 		timeoutForFN:           defaultTimeoutForGoRoutine,
 		numberOfWorkers:        defaultNumWorkers,
@@ -56,17 +56,17 @@ func NewPool(options ...PoolOption) *Pool {
 
 	p := &Pool{
 		funcChannel:         make(chan funcChannelData, conf.poolSize),
-		reporter:            conf.reporter,
+		errorHandler:        conf.errorHandler,
 		timeoutInsertToPool: conf.timeoutForInsertToPool,
 		contextPropagators:  conf.contextPropagators,
 	}
 
 	for i := 0; i < conf.numberOfWorkers; i++ {
 		w := worker{
-			id:          i,
-			funcChannel: p.funcChannel,
-			reporter:    conf.reporter,
-			timeout:     conf.timeoutForFN,
+			id:           i,
+			funcChannel:  p.funcChannel,
+			errorHandler: conf.errorHandler,
+			timeout:      conf.timeoutForFN,
 		}
 		w.startReceivingData()
 	}
@@ -86,16 +86,16 @@ func (p *Pool) RunAsync(ctx context.Context, fn HandleFunc) {
 		case p.funcChannel <- data:
 		case <-time.After(p.timeoutInsertToPool):
 			err := fmt.Errorf("pool.Dispatch channel is full, timeout waiting for dispatch")
-			p.reporter.Error(ctx, err)
+			p.errorHandler.HandleError(ctx, err)
 		}
 	}()
 }
 
 type worker struct {
-	id          int
-	funcChannel chan funcChannelData
-	reporter    ErrorReporter
-	timeout     time.Duration
+	id           int
+	funcChannel  chan funcChannelData
+	errorHandler ErrorHandler
+	timeout      time.Duration
 }
 
 func (w *worker) startReceivingData() {
@@ -110,11 +110,11 @@ func (w *worker) handleData(ctx context.Context, fn HandleFunc) {
 	ctx, cacnelFunc := context.WithTimeout(ctx, w.timeout)
 	defer cacnelFunc()
 
-	defer recoverPanic(ctx, w.reporter)
+	defer recoverPanic(ctx, w.errorHandler)
 
 	if err := fn(ctx); err != nil {
 		err = fmt.Errorf("async handleData: %w", err)
-		w.reporter.Error(ctx, err)
+		w.errorHandler.HandleError(ctx, err)
 	}
 }
 
