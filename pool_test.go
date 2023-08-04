@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/OrenRosen/async"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 func TestStartPool(t *testing.T) {
@@ -72,7 +70,7 @@ func TestStartPool_SendMany(t *testing.T) {
 		select {
 		case user := <-gotChannel:
 			receivedUsers[i] = user
-		case <-time.After(time.Second * 100):
+		case <-time.After(time.Millisecond * 100):
 			t.Fatal("the service wasn't called, timeout")
 		}
 	}
@@ -119,16 +117,4 @@ func expectUsers(t *testing.T, expected, actual []User) {
 
 		require.True(t, found, "expectUsers didn't find user")
 	}
-}
-
-type datadogInjector struct {
-}
-
-func (d datadogInjector) Inject(ctx context.Context, carrier interface{ async.Carrier }) {
-	span, ok := tracer.SpanFromContext(ctx)
-	if !ok {
-		return
-	}
-
-	_ = tracer.Inject(span.Context(), carrier)
 }
