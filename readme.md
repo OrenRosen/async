@@ -1,8 +1,9 @@
 # Package gosync
 
 [![Build Status](https://github.com/OrenRosen/async/actions/workflows/merge.yaml/badge.svg?branch=main)](https://github.com/OrenRosen/async/blob/main/.github/workflows/merge.yaml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/OrenRosen/async.svg)](https://pkg.go.dev/github.com/OrenRosen/async)
 
-Package `gosync` provides simple helpers for running code in a go routine.
+Package `async` provides simple helpers for running code in a go routine.
 
 ### Main features (or why to use this package instead of just `go func`):
 - Limiting the number of opened go routines.
@@ -150,11 +151,50 @@ There are cases though, you want to propagate a value, to be used in the passed 
 
 For more info, you look at the examples and tests. 
 
+# Propagation Example
+As been said, when you start a function in the background, in a different go routine you can't use the same context. This is because the cancellation of the original context shouldn't affect your async function to run properly. The package `async` takes care and passes other context into the go routine.
 
+Let's say you have a traceID as a value in the context. The traceID is usually should passed all around the flow, so you want to have it also in the function you pass to the `RunAsync` method.
+To do that, when starting the async (or the pool), you can pass ContextPropagator to do exactly that:
+```go
+// ContextPropagator is used for moving values from the ctx into the new context.
+// This is in order to preserve needed values between the context when initializing a new go routine.
+type ContextPropagator interface {
+    MoveToContext(from, to context.Context) context.Context
+}
 
+// The ContextPropagatorFunc type is an adapter to allow the use of ordinary functions as context propagators.
+// If f is a function with the appropriate signature, ContextPropagatorFunc(f) is a propagator that calls f.
+type ContextPropagatorFunc func(from, to context.Context) context.Context
 
+func (f ContextPropagatorFunc) MoveToContext(from, to context.Context) context.Context {
+    return f(from, to)
+}
+```
+When initializing the `async` or `pool`, use the option `WithContextPropagator`: 
 
+```go
+	a := async.New(
+        async.WithContextPropagation(async.ContextPropagatorFunc(func(from, to context.Context) context.Context {
+            return context.WithValue(to, "SomeKey", from.Value("SomeKey"))
+        })),
+    )
+```
 
+Now, every time you will call `a.RunAsync`, you will have this value in the passed context:
+```go
+	a.RunAsync(ctx, func(ctx context.Context) error {
+		// `ctx` contains the value under key `SomeKey`
+		
+		//...
+	}
+```
+
+## TODOs:
+
+- Add option to propagate keys (instead of passing a propagator, only pass the key) 
+- Dynamic workers count (auto-scale)
+- Close the pool
 
 
 

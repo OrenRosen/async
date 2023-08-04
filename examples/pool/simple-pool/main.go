@@ -10,7 +10,7 @@ import (
 
 func main() {
 	// initialize the pool
-	// open 10 go routine, in each go routine a worker is listens on a channel for a received function
+	// by default it opens 10 workers, each worker listens in a different go routine on a channel for a received function
 	pool := async.NewPool()
 
 	// call `pool.RunAsync` with a context and a closure.

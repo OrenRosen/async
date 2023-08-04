@@ -12,16 +12,14 @@ type ErrorReporter interface {
 	Error(ctx context.Context, err error)
 }
 
-type Carrier interface {
-	Set(key, value string)
-}
-
 // ContextPropagator is used for moving values from the ctx into the new context.
 // This is in order to preserve needed values between the context when initializing a new go routine.
 type ContextPropagator interface {
 	MoveToContext(from, to context.Context) context.Context
 }
 
+// The ContextPropagatorFunc type is an adapter to allow the use of ordinary functions as context propagators.
+// If f is a function with the appropriate signature, ContextPropagatorFunc(f) is a propagator that calls f.
 type ContextPropagatorFunc func(from, to context.Context) context.Context
 
 func (f ContextPropagatorFunc) MoveToContext(from, to context.Context) context.Context {
