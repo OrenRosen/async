@@ -1,7 +1,5 @@
 # Package gosync
 
-[![Build Status](https://github.com/OrenRosen/async/actions/workflows/gotest.yaml/badge.svg)](https://github.com/OrenRosen/async/blob/main/.github/workflows/gotest.yaml)
-
 Package `gosync` provides simple helpers for running code in a go routine.
 
 ### Main features (or why to use this package instead of just `go func`):
