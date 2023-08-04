@@ -2,14 +2,15 @@
 
 Package `gosync` provides simple helpers for running code in a go routine.
 
-Main featured:
+### Main features (or why to use this package instead of just `go func`):
 - Limiting the number of opened go routines.
 - Recovering from a panic.
-- Option to passing values between contexts.
+- Prevent cancellation from propagate to the go routine
+- Propagate values between contexts.
 - Configurable timeouts.
-- Handling errors from the async function
+- Handling errors from the async function.
 
-# Simple usecases:
+# Simple Use-Cases:
 
 ### Run function in a new go routine
 The most basic functionality is to open a new go routine when everytime it is called:
@@ -45,7 +46,7 @@ func main() {
 
 ### Run a function in a pool of go routines
 
-This use case is for cases you know you have a lot of traffic, and you would not like to open a new go routine for each call. Instead, it initializes a pool of go routines, which are ready to handle an incoming function:
+This use-case is for cases you know you have a lot of traffic, and you would not like to open a new go routine for each call. Instead, it initializes a pool of go routines, which are ready to handle an incoming function:
 
 ```go
 package main
@@ -64,7 +65,7 @@ func main() {
 	pool := async.NewPool()
 	
 	// call `pool.RunAsync` with a context and a closure.
-	// this will add the passed function to the queue channel for be consumed by an available worker 
+	// this will add the passed function to the queue channel to be consumed by an available worker 
 	pool.RunAsync(context.Background(), func(ctx context.Context) error {
 		fmt.Println("running in async pool")
 		return nil
@@ -95,7 +96,7 @@ type Asyncer interface {
 ```
 When `RunAsync` is called, it opens a new go routine, and executes `fn`.
 
-### AsyncOption
+## AsyncOption
 You can pass options to the initializer for custom configuration. The available options are
 
 #### Max opened go routines
@@ -136,11 +137,16 @@ type ErrorReporter interface {
 ```
 It will be called in case of an error. You can use this option for logging/monitoring.
 
-#### Context injectors
-Use this option to add an injector
+#### Context Propagator
+Use this option to add a context propagator. 
 ```go
-func WithContextInjector(injector Injector) AsyncOption
+func WithContextPropagator(propagator ContextPropagator) AsyncOption
 ```
+A context propagator is used to propagate values between contexts. Since the passed function runs async, you wouldn't want that cancelling the original context will affect your code in the passed function, so async uses other context to pass into the function.
+
+There are cases though, you want to propagate a value, to be used in the passed function. For example traceID, user details, log id etc...
+
+For more info, you look at the examples and tests. 
 
 
 
@@ -154,6 +160,3 @@ func WithContextInjector(injector Injector) AsyncOption
 
 
 
-
-
-d
