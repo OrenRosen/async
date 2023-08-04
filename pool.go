@@ -22,7 +22,7 @@ type Pool struct {
 	funcChannel         chan funcChannelData
 	reporter            ErrorReporter
 	timeoutInsertToPool time.Duration
-	contextInjectors    []Injector
+	contextPropagators  []ContextPropagator
 }
 
 type HandleFunc func(ctx context.Context) error
@@ -58,7 +58,7 @@ func NewPool(options ...PoolOption) *Pool {
 		funcChannel:         make(chan funcChannelData, conf.poolSize),
 		reporter:            conf.reporter,
 		timeoutInsertToPool: conf.timeoutForInsertToPool,
-		contextInjectors:    conf.contextInjectors,
+		contextPropagators:  conf.contextPropagators,
 	}
 
 	for i := 0; i < conf.numberOfWorkers; i++ {
@@ -77,7 +77,7 @@ func NewPool(options ...PoolOption) *Pool {
 // RunAsync adds the function into the channel which will be received by a worker.
 func (p *Pool) RunAsync(ctx context.Context, fn HandleFunc) {
 	data := funcChannelData{
-		ctx: asyncContext(ctx, p.contextInjectors),
+		ctx: asyncContext(ctx, p.contextPropagators),
 		fn:  fn,
 	}
 

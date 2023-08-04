@@ -1,6 +1,8 @@
 package async
 
-import "time"
+import (
+	"time"
+)
 
 // Async options
 
@@ -9,7 +11,7 @@ type AsyncOption func(*Config)
 type Config struct {
 	reporter            ErrorReporter
 	timeoutForGoRoutine time.Duration
-	contextInjectors    []Injector
+	contextPropagators  []ContextPropagator
 	maxGoRoutines       uint
 	timeoutForGuard     time.Duration
 }
@@ -38,12 +40,11 @@ func WithMaxGoRoutines(n uint) AsyncOption {
 	}
 }
 
-// WithContextInjector add an injector. An Injector is used for injecting values from the ctx into the carrier.
-//
-// This is in order to preserve needed values between the contexts when initializing a new go routine.
-func WithContextInjector(injector Injector) AsyncOption {
+// WithContextPropagation adds a context propagator. A propagator is used to move values from the received context to the new context
+// Use this in order to preserve needed values between the contexts when initializing a new go routine.
+func WithContextPropagation(contextPropagator ContextPropagator) AsyncOption {
 	return func(conf *Config) {
-		conf.contextInjectors = append(conf.contextInjectors, injector)
+		conf.contextPropagators = append(conf.contextPropagators, contextPropagator)
 	}
 }
 
@@ -55,7 +56,7 @@ type PoolConfig struct {
 	reporter               ErrorReporter
 	timeoutForFN           time.Duration
 	timeoutForInsertToPool time.Duration
-	contextInjectors       []Injector
+	contextPropagators     []ContextPropagator
 	poolSize               uint
 	numberOfWorkers        int
 }
@@ -95,8 +96,8 @@ func WithPoolSize(n uint) PoolOption {
 	}
 }
 
-func WithPoolContextInjector(injector Injector) PoolOption {
+func WithPoolContextPropagator(contextPropagator ContextPropagator) PoolOption {
 	return func(conf *PoolConfig) {
-		conf.contextInjectors = append(conf.contextInjectors, injector)
+		conf.contextPropagators = append(conf.contextPropagators, contextPropagator)
 	}
 }

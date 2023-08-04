@@ -16,11 +16,16 @@ type Carrier interface {
 	Set(key, value string)
 }
 
-// Injector is used for injecting values from the ctx into the carrier.
-//
+// ContextPropagator is used for moving values from the ctx into the new context.
 // This is in order to preserve needed values between the context when initializing a new go routine.
-type Injector interface {
-	Inject(ctx context.Context, carrier interface{ Carrier })
+type ContextPropagator interface {
+	MoveToContext(from, to context.Context) context.Context
+}
+
+type ContextPropagatorFunc func(from, to context.Context) context.Context
+
+func (f ContextPropagatorFunc) MoveToContext(from, to context.Context) context.Context {
+	return f(from, to)
 }
 
 const (
@@ -35,7 +40,7 @@ type Async struct {
 	reporter            ErrorReporter
 	timeoutForGuard     time.Duration
 	timeoutForGoRoutine time.Duration
-	contextInjectors    []Injector
+	contextPropagators  []ContextPropagator
 }
 
 func New(options ...AsyncOption) *Async {
@@ -55,12 +60,12 @@ func New(options ...AsyncOption) *Async {
 		reporter:            conf.reporter,
 		timeoutForGuard:     conf.timeoutForGuard,
 		timeoutForGoRoutine: conf.timeoutForGoRoutine,
-		contextInjectors:    conf.contextInjectors,
+		contextPropagators:  conf.contextPropagators,
 	}
 }
 
 func (a *Async) RunAsync(ctx context.Context, fn HandleFunc) {
-	ctx = asyncContext(ctx, a.contextInjectors)
+	ctx = asyncContext(ctx, a.contextPropagators)
 
 	select {
 	case a.guard <- struct{}{}:
@@ -85,15 +90,14 @@ func (a *Async) RunAsync(ctx context.Context, fn HandleFunc) {
 	}
 }
 
-func asyncContext(ctx context.Context, injectors []Injector) context.Context {
+func asyncContext(ctx context.Context, contextPropagators []ContextPropagator) context.Context {
 	newCtx := context.Background()
 
-	carrier := ctxCarrier{newCtx}
-	for _, inj := range injectors {
-		inj.Inject(ctx, &carrier)
+	for _, propagator := range contextPropagators {
+		newCtx = propagator.MoveToContext(ctx, newCtx)
 	}
 
-	return carrier.ctx
+	return newCtx
 }
 
 func recoverPanic(ctx context.Context, reporter ErrorReporter) {
@@ -112,12 +116,4 @@ type noopReporter struct {
 
 func (_ noopReporter) Error(ctx context.Context, err error) {
 
-}
-
-type ctxCarrier struct {
-	ctx context.Context
-}
-
-func (c *ctxCarrier) Set(key, value string) {
-	c.ctx = context.WithValue(c.ctx, key, value)
 }

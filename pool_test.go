@@ -19,7 +19,7 @@ func TestStartPool(t *testing.T) {
 	}
 
 	pool := async.NewPool(
-		async.WithPoolContextInjector(injector{}))
+		async.WithPoolContextPropagator(propagator{}))
 
 	user := User{
 		Name: "Some User",

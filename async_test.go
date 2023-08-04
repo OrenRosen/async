@@ -14,7 +14,7 @@ func Test_async_RunAsync(t *testing.T) {
 	rep := &reporter{}
 	asyncer := async.New(
 		async.WithErrorReporter(rep),
-		async.WithContextInjector(injector{}),
+		async.WithContextPropagation(propagator{}),
 	)
 
 	ctx := context.WithValue(context.Background(), "someKey", "someValue")
@@ -113,6 +113,14 @@ func (r *reporter) Error(ctx context.Context, err error) {
 	if r.errorCh != nil {
 		r.errorCh <- struct{}{}
 	}
+}
+
+type propagator struct {
+}
+
+func (i propagator) MoveToContext(from, to context.Context) context.Context {
+	val := from.Value("someKey")
+	return context.WithValue(to, "someKey", val)
 }
 
 type injector struct {
