@@ -1,6 +1,9 @@
-name: Go package
+name: merge to main
 
-on: [pull_request]
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
