@@ -122,17 +122,3 @@ func (i propagator) MoveToContext(from, to context.Context) context.Context {
 	val := from.Value("someKey")
 	return context.WithValue(to, "someKey", val)
 }
-
-type injector struct {
-}
-
-func (i injector) Inject(ctx context.Context, carrier interface{ async.Carrier }) {
-	val, ok := ctx.Value("someKey").(string)
-	if !ok {
-		return
-	}
-
-	if val != "" {
-		carrier.Set("someKey", val)
-	}
-}
