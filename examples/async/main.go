@@ -17,5 +17,5 @@ func main() {
 	})
 
 	done := <-ch
-	fmt.Println("------------------ ", done)
+	fmt.Println("---------------------- ", done)
 }
