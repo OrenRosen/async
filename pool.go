@@ -91,6 +91,8 @@ func (p *Pool) RunAsync(ctx context.Context, fn HandleFunc) {
 	}()
 }
 
+// private
+
 type worker struct {
 	id           int
 	funcChannel  chan funcChannelData
@@ -107,8 +109,8 @@ func (w *worker) startReceivingData() {
 }
 
 func (w *worker) handleData(ctx context.Context, fn HandleFunc) {
-	ctx, cacnelFunc := context.WithTimeout(ctx, w.timeout)
-	defer cacnelFunc()
+	ctx, cancelFunc := context.WithTimeout(ctx, w.timeout)
+	defer cancelFunc()
 
 	defer recoverPanic(ctx, w.errorHandler)
 

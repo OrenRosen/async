@@ -39,7 +39,6 @@ const (
 )
 
 type Async struct {
-	traceServiceName    string
 	guard               chan struct{}
 	errorHandler        ErrorHandler
 	timeoutForGuard     time.Duration
@@ -74,11 +73,11 @@ func (a *Async) RunAsync(ctx context.Context, fn HandleFunc) {
 	select {
 	case a.guard <- struct{}{}:
 		go func() {
-			ctx, cacnelFunc := context.WithTimeout(ctx, a.timeoutForGoRoutine)
+			ctx, cancelFunc := context.WithTimeout(ctx, a.timeoutForGoRoutine)
 
 			var err error
 			defer func() {
-				cacnelFunc()
+				cancelFunc()
 				<-a.guard
 			}()
 
@@ -93,6 +92,8 @@ func (a *Async) RunAsync(ctx context.Context, fn HandleFunc) {
 		a.errorHandler.HandleError(ctx, errorTimeout(fmt.Errorf("async timeout while waiting to guard")))
 	}
 }
+
+// private
 
 func asyncContext(ctx context.Context, contextPropagators []ContextPropagator) context.Context {
 	newCtx := context.Background()
