@@ -43,7 +43,7 @@ type HandleFunc func(ctx context.Context) error
 // TODO - add Close functionality.
 func NewPool(options ...PoolOption) *Pool {
 	conf := PoolConfig{
-		errorHandler:           noopErrorHandler{},
+		errorHandler:           defaultErrorHandler{},
 		timeoutForInsertToPool: defaultTimeout,
 		timeoutForFN:           defaultTimeoutForGoRoutine,
 		numberOfWorkers:        defaultNumWorkers,

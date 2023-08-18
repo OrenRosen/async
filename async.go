@@ -19,7 +19,7 @@ func (f ErrorFunc) HandleError(ctx context.Context, err error) {
 }
 
 // ContextPropagator is used for moving values from the ctx into the new context.
-// This is in order to preserve needed values between the context when initializing a new go routine.
+// This is in order to preserve needed values between the context when initializing a new goroutine.
 type ContextPropagator interface {
 	MoveToContext(from, to context.Context) context.Context
 }
@@ -49,7 +49,7 @@ type Async struct {
 
 func New(options ...AsyncOption) *Async {
 	conf := Config{
-		errorHandler:        noopErrorHandler{},
+		errorHandler:        defaultErrorHandler{},
 		maxGoRoutines:       defaultMaxGoRoutines,
 		timeoutForGuard:     defaultTimeoutForGuard,
 		timeoutForGoRoutine: defaultTimeoutForGoRoutine,
@@ -118,9 +118,9 @@ func recoverPanic(ctx context.Context, errorHandler ErrorHandler) {
 	}
 }
 
-type noopErrorHandler struct {
+type defaultErrorHandler struct {
 }
 
-func (_ noopErrorHandler) HandleError(ctx context.Context, err error) {
-
+func (_ defaultErrorHandler) HandleError(ctx context.Context, err error) {
+	fmt.Printf("async error: %+v\n", err)
 }
