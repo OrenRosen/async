@@ -1,7 +1,7 @@
 # Package gosync
 
 [![Build Status](https://github.com/OrenRosen/go/actions/workflows/merge.yaml/badge.svg?branch=main)](https://github.com/OrenRosen/go/blob/main/.github/workflows/merge.yaml)
-![Coverage](https://img.shields.io/badge/Coverage-60%25-brightgreen)
+![Coverage](https://img.shields.io/badge/Coverage-78.9%25-brightgreen)
 [![Go Reference](https://pkg.go.dev/badge/github.com/OrenRosen/async.svg)](https://pkg.go.dev/github.com/OrenRosen/async)
 
 
