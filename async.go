@@ -49,7 +49,7 @@ type Async struct {
 
 func New(options ...AsyncOption) *Async {
 	conf := Config{
-		errorHandler:        noopErrorHandler{},
+		errorHandler:        defaultErrorHandler{},
 		maxGoRoutines:       defaultMaxGoRoutines,
 		timeoutForGuard:     defaultTimeoutForGuard,
 		timeoutForGoRoutine: defaultTimeoutForGoRoutine,
@@ -115,9 +115,9 @@ func recoverPanic(ctx context.Context, errorHandler ErrorHandler) {
 	}
 }
 
-type noopErrorHandler struct {
+type defaultErrorHandler struct {
 }
 
-func (_ noopErrorHandler) HandleError(ctx context.Context, err error) {
-
+func (_ defaultErrorHandler) HandleError(ctx context.Context, err error) {
+	fmt.Printf("async error: %+v\n", err)
 }
