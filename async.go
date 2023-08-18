@@ -71,6 +71,9 @@ func New(options ...AsyncOption) *Async {
 func (a *Async) RunAsync(ctx context.Context, fn HandleFunc) {
 	ctx = asyncContext(ctx, a.contextPropagators)
 
+	timer := time.NewTimer(a.timeoutForGuard)
+	defer timer.Stop()
+
 	select {
 	case a.guard <- struct{}{}:
 		go func() {
@@ -89,7 +92,7 @@ func (a *Async) RunAsync(ctx context.Context, fn HandleFunc) {
 			}
 		}()
 
-	case <-time.After(a.timeoutForGuard):
+	case <-timer.C:
 		a.errorHandler.HandleError(ctx, errorTimeout(fmt.Errorf("async timeout while waiting to guard")))
 	}
 }
