@@ -26,10 +26,12 @@ func main() {
 	// run async
 	a.RunAsync(ctx, func(ctx context.Context) error {
 		fmt.Println("Doing stuff in the background - context.SomeKey =", ctx.Value("SomeKey"))
+		timer := time.NewTimer(time.Second)
 		select {
 		case <-ctx.Done():
 			fmt.Println("ERROR: in the background, context is done ", ctx.Err().Error())
-		case <-time.After(time.Second):
+			timer.Stop()
+		case <-timer.C:
 			fmt.Println("Finished work in the background")
 		}
 		ch <- "done"

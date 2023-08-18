@@ -82,9 +82,12 @@ func (p *Pool) RunAsync(ctx context.Context, fn HandleFunc) {
 	}
 
 	go func() {
+		timer := time.NewTimer(p.timeoutInsertToPool)
+		defer timer.Stop()
+
 		select {
 		case p.funcChannel <- data:
-		case <-time.After(p.timeoutInsertToPool):
+		case <-timer.C:
 			err := fmt.Errorf("pool.Dispatch channel is full, timeout waiting for dispatch")
 			p.errorHandler.HandleError(ctx, err)
 		}
